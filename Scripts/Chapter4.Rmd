@@ -1,0 +1,302 @@
+---
+title: "Chapter4"
+author: "SebastiánAyala"
+date: "8/24/2021"
+output: html_document
+---
+
+```{r libraries and python version, echo=FALSE, include=FALSE}
+library(igraph)
+library(HyperG)
+library(ggplot2)
+library(reticulate)
+
+# Specifying which version of python to use.
+use_python("/home/asayalar/anaconda3/envs/networks/bin/python3.8", 
+           required = T)
+
+```
+
+```{python packages, echo=FALSE}
+# Import Python packages 
+import networkx as nx
+import matplotlib.pyplot as plt
+import pandas as pd
+from collections import defaultdict
+from itertools import combinations
+```
+
+
+# Exercises chapter 4
+
+## 1. The network in http://www.networkatlas.eu/exercises/4/1/
+data.txt is bipartite. Identify the nodes in either type and find the
+nodes, in either type, with the most neighbors
+
+### Python code 
+
+```{python exercise 1, echo=FALSE}
+
+# Load the data
+G = nx.read_edgelist("Data/bipartite_net_ch4.txt")
+
+# Divide the nodes in the two bipartite sets
+nodes = nx.algorithms.bipartite.basic.sets(G)
+
+# Find the node in type 0 with the most neighbors
+node_neighbors = {n: len(set(G.neighbors(n))) for n in nodes[0]}
+maxnode = max(node_neighbors, key = node_neighbors.get)
+print(maxnode, node_neighbors[maxnode])
+
+# Find the node in type 1 with the most neighbors
+node_neighbors = {n: len(set(G.neighbors(n))) for n in nodes[1]}
+maxnode = max(node_neighbors, key = node_neighbors.get)
+print(maxnode, node_neighbors[maxnode])
+```
+
+### R code
+
+```{r excercise 1}
+# Load edge list 
+edge_list <- data.frame(read.table("../Data/bipartite_net_ch4.txt"))
+
+# Create the bipartite graph 
+bip_g <- graph.empty(directed = F)
+node.out <- unique(edge_list$V1) #stringsAsFactor = F in data frame
+node.in <- unique(edge_list$V2) #stringsAsFactor = F in data frame
+bip_g <- add.vertices(bip_g,nv=length(node.out),attr=list(name=node.out),type=rep(FALSE,length(node.out)))
+bip_g <- add.vertices(bip_g,nv=length(node.in),attr=list(name=node.in),type=rep(TRUE,length(node.in)))
+edge.list.vec <- as.vector(t(as.matrix(data.frame(edge_list))))
+bip_g <- add.edges(bip_g,edge.list.vec)
+
+# Count the number of neighbors 
+set1 <- data.frame(node = node.in, n_neighbors = ego_size(bip_g, order = 1, node.in))
+
+max_set1 <- set1[which.max(set1$n_neighbors),]
+
+set2 <- data.frame(node = node.out, n_neighbors = ego_size(bip_g, order = 1, node.out))
+
+max_set2 <- set2[which.max(set2$n_neighbors),]
+
+```
+
+
+## 2. This [network](https://www.networkatlas.eu/exercises/4/2/data.txt) is multilayer. The data has three columns: source and target node, and edge type. The edge type is either the numerical id of the layer, or "C" for an inter-layer coupling. Given that this is a one-to-one multilayer network, determine whether this network has a star, clique or chain coupling.
+
+### Python code 
+
+```{python exercise 2, echo=FALSE}
+
+# Load the data. We need to import as multigraph, or networkx will collapse the edges.
+# We also need to make sure to import the edge type information.
+G = nx.read_edgelist("../Data/multilayer_net_ch4.txt", create_using = nx.MultiGraph(), data = [("edgetype", str),])
+
+# Determine how many layers we have
+layers = len(set(e[2]["edgetype"] for e in G.edges(data = True))) - 1
+
+# If this is a chain coupling, all nodes can have at most two coupling edges
+node_cedges = defaultdict(int)
+for e in G.edges(data = True):
+   if e[2]["edgetype"] == "C":
+      node_cedges[e[0]] += 1
+      node_cedges[e[1]] += 1
+
+if max(node_cedges.values()) == 2:
+   print("Chain coupling")
+   
+# If this is a clique coupling, all nodes must have more than one coupling edge
+if min(node_cedges.values()) > 1:
+   print("Clique coupling")
+
+# If this is a star coupling, all nodes must have either one edge, or |L| - 1 coupling edges
+if set([1, layers - 1]) == set(node_cedges.values()):
+   print("Star coupling")
+
+```
+
+### R code
+
+```{r excercise 2}
+# Load dataframe 
+multil_net_df <- data.frame(read.table("../Data/multilayer_net_ch4.txt", col.names = c("from", "to", "layer")))
+
+# Create the multilayer graph 
+multig <- graph_from_data_frame(multil_net_df, directed=FALSE)
+multig
+
+# Number of edges per layer
+layers <- length(table(E(multig)$layer)) - 1
+
+# df of nodes with coupling edges
+
+df_ce_to <- data.frame(table(multil_net_df[multil_net_df$layer== "C", ]$to))
+
+colnames(df_ce_to) <- c('node', 'n_coupling_edges')
+
+df_ce_from <- data.frame(table(multil_net_df[multil_net_df$layer== "C", ]$from))
+
+colnames(df_ce_from) <- c('node', 'n_coupling_edges')
+
+df_ce = merge(x=df_ce_to,y=df_ce_from,by=c("node", 'n_coupling_edges'), all=TRUE)
+
+# Check if the multilayer net is chain coupling, where all nodes can have at most two coupling edges
+
+if(max(df_ce$n_coupling_edges) == 2 ){
+    print("Chain coupling")
+}
+
+# Check if the multilayer net is clique coupling, where all nodes must have more than one coupling edge
+
+if (min(df_ce$n_coupling_edges) > 1){
+     print("Clique coupling")
+}
+
+# Check if the multilayer net is star coupling, where all nodes must have either one edge, or |L| - 1 coupling edges
+
+if (df_ce$n_coupling_edges == 1 | df_ce$n_coupling_edges == layers-1){
+    print("Star coupling")
+}
+
+```
+
+## 3. This [network](https://www.networkatlas.eu/exercises/4/3/data.txt) is a hypergraph, with a hyperedge per line. Transform it in a unipartite network in which each hyperedge is split in edges connecting all nodes in the hyperedge. Then transform it into a bipartite network in which each hyperedge is a node of one type and its nodes connect to it.
+
+### Python code 
+
+```{python exercise 3, echo=FALSE}
+
+# Load the data.
+hyperedges = []
+with open("../Data/hypergraph_net_ch4.txt", 'r') as f:
+   for line in f:
+      hyperedges.append(line.strip().split())
+
+# Make it into a unipartite graph
+G_uni = nx.Graph()
+for hyperedge in hyperedges:
+   for combination in combinations(hyperedge, 2):
+      G_uni.add_edge(*combination)
+
+# Make it into a bipartite graph
+G_bip = nx.Graph()
+hyperid = 1
+for hyperedge in hyperedges:
+   for node in hyperedge:
+      G_bip.add_edge(node, "h%s" % hyperid)
+   hyperid += 1
+```
+
+### R code
+
+```{r excercise 3}
+
+# Load hypergraph with HyperG package 
+
+hyperg <- hypergraph_from_edgelist(list(c(1, 2, 3, 4, 5, 6), c(2,4,7,8), 
+                                   c(4,5,6,7,10), c(6,9,10,11,12), c(11,13,14,15), 
+                                   c(11,12,13), c(14,15,16,17,18), c(15,17,19,20), 
+                                   c(21,22,23), c(23,24), c(24,25,26), 
+                                   c(25,27,28,29)))
+
+# Plot the hypergraph
+#plot(hyperg)
+
+# Convert hypergraph to unipartite graph 
+g <- as.graph(hyperg)
+
+# Convert hypergraph to bipartite graph
+
+bipart_g <- as.bipartite(hyperg)
+V(bipart_g)[type == TRUE]$color <- "orange"
+V(bipart_g)[type == FALSE]$color <- "green"
+
+# Plot the three graphs 
+par(mfrow=c(1, 3))
+plot(hyperg)
+title("Hypergraph")
+plot(bipart_g)
+title("Bipartite graph")
+plot(g)
+title("Unipartite graph")
+```
+
+
+## 4. This [network](https://www.networkatlas.eu/exercises/4/4/data.txt) is dynamic, the third and fourth columns of the edge list tell you the first and last snapshot in which the edge was continuously present. An edge can reappear if the edge was present in two discontinuous time periods. Aggregate it using a disjoint window of size 3.
+
+### Python code 
+
+```{python exercise 4, echo=FALSE}
+
+# Load the data. We need to import as multigraph, or networkx will collapse the edges.
+# We also need to make sure to import the edge type information.
+G = nx.read_edgelist("../Data/dynamic_net_ch4.txt", create_using = nx.MultiGraph(), data = [("start", int), ("end", int)])
+
+# Since the window is disjoint and of size three, we need to group the 1-3, 4-6, and 7-9 snapshots.
+first_window = nx.Graph()
+second_window = nx.Graph()
+third_window = nx.Graph()
+for e in G.edges(data = True):
+   if e[2]["start"] <= 3:
+      first_window.add_edge(e[0], e[1])
+   if e[2]["start"] <= 6 and e[2]["end"] > 3:
+      second_window.add_edge(e[0], e[1])
+   if e[2]["end"] > 6:
+      third_window.add_edge(e[0], e[1])
+
+```
+
+### R code
+
+```{r excercise 4}
+# Load dataframe 
+multil_net_df2 <- data.frame(read.table("../Data/dynamic_net_ch4.txt", col.names = c("from", "to", "start_snap", "end_snap")))
+
+# Create the multilayer graph 
+multig2 <- graph_from_data_frame(multil_net_df2, directed=FALSE)
+multig2
+
+# Create networks with disjoint windows of size 3
+first_window <- make_empty_graph(n = 12, directed = FALSE)
+second_window <- make_empty_graph(n = 12, directed = FALSE)
+third_window <- make_empty_graph(n = 12, directed = FALSE)
+
+first_window_elist <- c()
+i <-1
+second_window_elist <- c()
+j <- 1
+third_window_elist <- c()
+z <- 1
+
+for(e in length(E(multig2))){
+    if(E(multig2)$start_snap[e] <= 3){
+        first_window_elist[i:i+1] <- c(E(multig2)$start_snap[e], 
+                                  E(multig2)$end_snap[e])
+        i <- i + 2
+    }
+    if(E(multig2)$start_snap[e] <= 6 & E(multig2)$end_snap[e] > 3){
+        second_window_elist[j:j+1] <- c(E(multig2)$start_snap[e], 
+                                  E(multig2)$end_snap[e])
+        j <- j + 2
+    }
+    
+    if(E(multig2)$end_snap[e] > 6){
+        third_window_elist[z:z+1] <- c(E(multig2)$start_snap[e], 
+                                  E(multig2)$end_snap[e])
+        z <- z + 2
+    }
+}
+   
+# Plot the three graphs 
+# par(mfrow=c(1, 3))
+# plot(first_window)
+# title("First window")
+# plot(second_window)
+# title("Second window")
+# plot(third_window)
+# title("Third window")
+
+first_window_elist
+second_window_elist
+third_window_elist
+
+```
