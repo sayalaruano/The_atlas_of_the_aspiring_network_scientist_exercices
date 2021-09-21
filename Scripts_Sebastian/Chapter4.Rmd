@@ -60,6 +60,7 @@ print(maxnode, node_neighbors[maxnode])
 # Load edge list 
 edge_list <- data.frame(read.table("../Data/bipartite_net_ch4.txt"))
 
+
 # Create the bipartite graph 
 bip_g <- graph.empty(directed = F)
 node.out <- unique(edge_list$V1) #stringsAsFactor = F in data frame

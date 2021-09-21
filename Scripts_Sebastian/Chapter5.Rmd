@@ -1,0 +1,161 @@
+---
+title: "Chapter5"
+author: "SebastiánAyala"
+date: "9/12/2021"
+output: html_document
+---
+
+```{r libraries and python version, echo=FALSE, include=FALSE}
+library(igraph)
+library(ggplot2)
+library(reticulate)
+library(readr)
+library(dplyr)
+```
+
+```{python packages, echo=FALSE}
+# Import Python packages 
+import networkx as nx
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np 
+```
+# Exercises chapter 5
+
+## 1. Calculate the adjacency matrix, the stochastic adjacency matrix, and the graph Laplacian for this [network](https://www.networkatlas.eu/exercises/5/1/data.txt).
+
+### Python code from [book solutions](https://www.networkatlas.eu/exercise.htm)
+
+```{python exercise 1, echo=FALSE}
+# Load the data
+G = nx.read_edgelist("../Data/ch5/edge_list_ch5.txt")
+
+# Adjacency matrix
+# If this give memory error, try "to_scipy_sparse_matrix"
+adjmat = nx.to_numpy_matrix(G)
+
+# Stochastic adjacency
+adjmat_stoc = adjmat / adjmat.sum(axis = 1)
+
+# Graph Laplacian
+laplacian = nx.laplacian_matrix(G)
+
+```
+
+### R code
+
+```{r excercise 1}
+# Load edge list 
+#g_edge_list <- read_graph("../Data/ch5/edge_list_ch5.txt", format ="edgelist")
+#g_edge_list <- delete.vertices(g_edge_list, "1")
+edge_list <- data.frame(read.table("../Data/ch5/edge_list_ch5.txt", col.names = c("V1", "V2")))
+
+# Creating a graph 
+g_edge_list <- graph_from_data_frame(edge_list, directed = FALSE)
+
+# Adjacency matrix
+g_adj_m <- as_adjacency_matrix(g_edge_list)
+
+# Stochastic adjacency matrix
+g_st_adj_m <- stochastic_matrix(g_edge_list, sparse = FALSE)
+
+# Grph Laplacian 
+g_laplacian <- laplacian_matrix(g_edge_list)
+
+```
+
+## 2. Given this [bipartite network](https://www.networkatlas.eu/exercises/5/2/data.txt), calculate the stochastic adjacency matrix of its projection. Project along the axis of size 248. (Note: don’t ignore the weights) 
+
+### Python code 
+
+```{python exercise 2, echo=FALSE}
+# Load the data
+G = nx.read_edgelist("../Data/ch5/bipartite_net_ch5.txt", data = [("weight", float),])
+
+# Identify the bipartite sets
+nodes = nx.algorithms.bipartite.basic.sets(G)
+
+# Non-square adjacency matrix
+adjmat = nx.algorithms.bipartite.matrix.biadjacency_matrix(G, nodes[0])
+
+# Project along smaller axis
+if adjmat.shape[0] == 248:
+   adjmat_proj = adjmat.dot(adjmat.T)
+else:
+   adjmat_proj = adjmat.T.dot(adjmat)
+   
+# Make stocastic
+adjmat_proj_stoc = adjmat_proj / adjmat_proj.sum(axis = 1)
+print(adjmat_proj_stoc)
+
+```
+
+### R code
+
+```{r excercise 2}
+# Loading data 
+edge_list <- data.frame(read.table("../Data/ch5/bipartite_net_ch5.txt", col.names = c("V1", "V2", "weight")))
+
+# Creating a graph 
+bib_g <- graph_from_data_frame(edge_list, directed = FALSE)
+
+# Assigning corresponding type for all nodes 
+for(i in 1:length(V(bib_g))) {
+   if(grepl("a", V(bib_g)[i]$name)){
+      V(bib_g)[i]$"type" <- "TRUE"
+   }else{
+      V(bib_g)[i]$"type" <- "FALSE"
+   }
+}
+
+# Extracting the incidence matrix of the bip graph
+adj_m_bip_g <- as_incidence_matrix(bib_g, attr = "weight", sparse = TRUE)
+
+adjmat_proj <- t(adj_m_bip_g) %*% adj_m_bip_g
+
+adjmat_proj_stoc = adjmat_proj / rowSums(adjmat_proj)
+
+```
+
+## 3. Calculate the eigenvalues and the right and left eigenvectors of the stochastic adjacency of this [bipartite network](https://www.networkatlas.eu/exercises/5/2/data.txt), using the same procedure applied in Exercise 5.2. Make sure to sort the eigenvalues in descending order (and sort the eigenvectors accordingly). Only take the real part of eigenvalues and eigenvectors, ignoring the imaginary part.
+
+### Python code 
+
+```{python exercise 3, echo=FALSE}
+# Eigenvalues and Eigenvectors. Right eigenvectors first.
+values, vectors_r = np.linalg.eig(adjmat_proj_stoc)
+
+# We need to sort the eigenvalues and eigenvectors, since numpy returns them in random order
+sorted_index = values.argsort()[::-1]
+values = np.real(values[sorted_index])
+vectors_r = np.real(vectors_r[:,sorted_index])
+print(values)
+print(vectors_r)
+
+# Now left eigenvectors.
+values, vectors_l = np.linalg.eig(adjmat_proj_stoc.T)
+sorted_index = values.argsort()[::-1]
+values = np.real(values[sorted_index])
+vectors_l = np.real(vectors_l[:,sorted_index])
+print(vectors_l)
+
+```
+
+### R code
+
+```{r excercise 3}
+# Extract eigen values and eigen vectors 
+
+e_r <- eigen(adjmat_proj_stoc)
+
+e_l <- eigen(t(adjmat_proj_stoc))
+
+eigen_values <- e_r$values
+
+eigen_vec_r <- e_r$vectors
+
+eigen_vec_l <- e_l$vectors
+
+```
+
+
