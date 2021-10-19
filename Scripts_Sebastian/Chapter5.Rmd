@@ -66,7 +66,7 @@ g_laplacian <- laplacian_matrix(g_edge_list)
 
 ## 2. Given this [bipartite network](https://www.networkatlas.eu/exercises/5/2/data.txt), calculate the stochastic adjacency matrix of its projection. Project along the axis of size 248. (Note: don’t ignore the weights) 
 
-### Python code 
+### Python code from [book solutions](https://www.networkatlas.eu/exercise.htm)
 
 ```{python exercise 2, echo=FALSE}
 # Load the data
@@ -119,7 +119,7 @@ adjmat_proj_stoc = adjmat_proj / rowSums(adjmat_proj)
 
 ## 3. Calculate the eigenvalues and the right and left eigenvectors of the stochastic adjacency of this [bipartite network](https://www.networkatlas.eu/exercises/5/2/data.txt), using the same procedure applied in Exercise 5.2. Make sure to sort the eigenvalues in descending order (and sort the eigenvectors accordingly). Only take the real part of eigenvalues and eigenvectors, ignoring the imaginary part.
 
-### Python code 
+### Python code from [book solutions](https://www.networkatlas.eu/exercise.htm)
 
 ```{python exercise 3, echo=FALSE}
 # Eigenvalues and Eigenvectors. Right eigenvectors first.

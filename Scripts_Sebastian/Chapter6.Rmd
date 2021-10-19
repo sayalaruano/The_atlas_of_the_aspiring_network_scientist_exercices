@@ -1,0 +1,202 @@
+---
+title: "Chapter6"
+author: "SebastiánAyala"
+date: "28/09/2021"
+output: html_document
+---
+
+```{r libraries and python version, echo=FALSE, include=FALSE}
+library(igraph)
+library(ggplot2)
+library(reticulate)
+library(readr)
+library(dplyr)
+library(scales)
+```
+
+```{python packages, echo=FALSE}
+# Import Python packages 
+import networkx as nx
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np 
+from collections import Counter
+from scipy.stats import linregress
+import powerlaw as pl
+from scipy.optimize import curve_fit
+```
+# Exercises chapter 6
+
+## 4. Plot the degree distribution of this [network](https://www.networkatlas.eu/exercises/6/4/data.txt). Start from a plain degree distribution, then in log-log scale, finally plot the complement of the cumulative distribution.
+
+### Python code from [book solutions](https://www.networkatlas.eu/exercise.htm)
+
+```{python exercise 4, echo=FALSE}
+# Load the data
+G = nx.read_edgelist("../Data/ch6/edge_list_ch6.txt", delimiter = "\t")
+
+# G.degrees return the degree dictionary, of which we only take the values and store
+# them in a list. Counter will tell us how many elements in a list have a specific
+# value (i.e. how many nodes have a specific degree). Then we convert it into a
+# data frame for easier processing.
+dd = Counter(dict(G.degree).values())
+dd = pd.DataFrame(list(dd.items()), columns = ("k", "count")).sort_values(by = "k")
+
+# We use the standard pandas plotting function to see the degree distribution and
+# save it to file.
+dd.plot(kind = "scatter", x = "k", y = "count", color = "#e41a1c")
+plt.show()
+
+# The standard pandas plotting function allows us to use a log-log scale via a
+# parameter, then we again save it to file.
+dd.plot(kind = "scatter", x = "k", y = "count", color = "#e41a1c", loglog = True)
+plt.show()
+
+# To make the CCDF we need to know how many nodes have degree equal to or higher
+# than a specific value. So we sort the dataframe in descending degree order, so
+# that the pandas cumsum function will calculate that for us. Then we normalize by
+# the total degree sum, so that the count becomes a probability. We then sort in
+# ascending degree value, to respect the convention.
+ccdf = dd.sort_values(by = "k", ascending = False)
+ccdf["cumsum"] = ccdf["count"].cumsum()
+ccdf["ccdf"] = ccdf["cumsum"] / ccdf["count"].sum()
+ccdf = ccdf[["k", "ccdf"]].sort_values(by = "k")
+
+# Plot as usual and save it for later, since it's very pretty.
+ccdf.plot(kind = "line", x = "k", y = "ccdf", color = "#e41a1c", loglog = True)
+plt.show()
+
+```
+
+### R code
+
+```{r excercise 4}
+# Load edge list 
+edge_list <- data.frame(read.table("../Data/ch6/edge_list_ch6.txt", col.names = c("V1", "V2")))
+
+# Creating a graph 
+g_edge_list <- graph_from_data_frame(edge_list, directed = FALSE)
+
+deg_distrib <- function(network){
+  deg_g <- as.numeric(igraph::degree(network))
+  deg_g_freq <- as.data.frame(table(deg_g))
+  deg_g_freq$deg_g <- as.numeric(as.character(deg_g_freq$deg_g))
+  deg_g_freq
+}
+
+g_deg_distrib <- deg_distrib(g_edge_list)
+
+colnames(g_deg_distrib) <- c("deg", "freq")
+
+ggplot(g_deg_distrib, aes(x = deg, y = freq )) +
+  theme_bw()+
+  geom_point(size = 0.9)+
+  xlab("k") +
+  ylab("Count")
+
+ggplot(g_deg_distrib, aes(x = deg, y = freq )) +
+  theme_bw()+
+  geom_point(size = 0.9)+
+  xlab("k") +
+  ylab("Count")+
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x)))+
+  scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x)))
+
+# get the ecdf - Empirical Cumulative Distribution Function of freq
+my_ecdf <- ecdf(g_deg_distrib$deg)
+
+# now put the ecdf and its complementary in a data.frame
+g_deg_distrib_ccdf <- data.frame(x = sort(g_deg_distrib$deg),
+                    y = 1-my_ecdf(sort(g_deg_distrib$deg) ))
+
+ggplot(g_deg_distrib_ccdf, aes(x, y)) +
+  theme_bw()+
+  geom_line()+
+  xlab("x") +
+  ylab("p(k>=x)")+
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x)))+
+  scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x)))
+
+```
+
+## 5. Estimate the power law exponent of the CCDF degree distribution from Exercise 6.4. First by a linear regression on the log-log plane, then by using the powerlaw package. Do they agree? Is this a shifted power law? If so, what's k min? (Hint: powerlaw can calculate this for you)
+
+### Python code 
+
+```{python exercise 5, echo=FALSE}
+# We take the logarithm in base 10 of both degree and CCDF. Then we simply do a linear regression. The slope is
+# the exponent. The intercept needs to be the power of 10, to undo the logarithm operation. Look at that
+# r-squared!
+logcdf = np.log10(ccdf[["k", "ccdf"]])
+slope, log10intercept, r_value, p_value, std_err = linregress(logcdf["k"], logcdf["ccdf"])
+print("CCDF Fit: %1.4f x ^ %1.4f (R2 = %1.4f, p = %1.4f)" % (10 ** log10intercept, slope, r_value ** 2, p_value))
+
+# With the powerlaw package, fitting the CCDf is simple. It will store results in the .power_law property. To
+# get the actual k_min, we need to find the degree value corresponding to the probability in .power_law.xmin:
+# pandas makes it easy. This is definitely a shifted power law. (Kappa contains the intercept information)
+results = pl.Fit(ccdf["ccdf"])
+k_min = ccdf[ccdf["ccdf"] == results.power_law.xmin]["k"]
+print("Powerlaw CCDF Fit: %1.4f x ^ -%1.4f (k_min = %d)" % (10 ** results.power_law.Kappa, results.power_law.alpha, k_min))
+
+# Let's plot the best fit.
+ccdf["fit"] = (10 ** results.power_law.Kappa) * (ccdf["k"] ** -results.power_law.alpha)
+ax = plt.gca()
+ccdf.plot(kind = "line", x = "k", y = "ccdf", color = "#e41a1c", loglog = True, ax = ax)
+ccdf.plot(kind = "line", x = "k", y = "fit", color = "#377eb8", loglog = True, ax = ax)
+plt.show()
+
+```
+
+### R code
+
+```{r excercise 5}
+logccdf <- as.data.frame(log10(g_deg_distrib_ccdf[1:474,]))
+
+deg_distrib_lm <- lm(x ~ y, data = logccdf)
+
+summary(deg_distrib_lm)
+
+```
+
+## 6. Find a way to fit the truncated power law of this [network](https://www.networkatlas.eu/exercises/6/6/data.net). Hint: use the scipy.optimize.curve_fit to fit an arbitrary function and use the functional form I provide in Chapter 6 of the book
+
+### Python code 
+
+```{python exercise 6, echo=FALSE}
+
+# Load the data and redo the CCDF.
+G = nx.read_pajek("../Data/ch6/pajek_net_ch6.txt")
+dd = Counter(dict(G.degree).values())
+dd = pd.DataFrame(list(dd.items()), columns = ("k", "count")).sort_values(by = "k")
+ccdf = dd.sort_values(by = "k", ascending = False)
+ccdf["cumsum"] = ccdf["count"].cumsum()
+ccdf["ccdf"] = ccdf["cumsum"] / ccdf["count"].sum()
+ccdf = ccdf[["k", "ccdf"]].sort_values(by = "k")
+
+# Let's define a custom function which is a power law with its exponential truncation. We
+# also define its logarithm, because we fit it to the log of the CCDF in curve_fit. This
+# is done because we want to minimize the relative error, not the absolute error (since
+# the tail of the distribution is very important, but it contributes very little to the
+# absolute error). Then we plot.
+def f(x, a, l):
+   return (x ** a) * np.exp(-l * x) 
+
+def log_f(x, a, l):
+   return np.log10(f(x, a, l))
+
+popt, pcov = curve_fit(log_f, ccdf["k"], np.log10(ccdf["ccdf"]), p0 = (1, 1))
+ccdf["fit"] = ccdf.apply(lambda x: f(x["k"], popt[0], popt[1]), axis = 1)
+
+ax = plt.gca()
+ccdf.plot(kind = "line", x = "k", y = "ccdf", color = "#e41a1c", loglog = True, ax = ax)
+ccdf.plot(kind = "line", x = "k", y = "fit", color = "#377eb8", loglog = True, ax = ax)
+
+plt.show()
+```
+
+
+

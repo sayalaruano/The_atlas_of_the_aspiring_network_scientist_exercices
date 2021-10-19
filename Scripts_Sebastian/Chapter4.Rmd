@@ -33,7 +33,7 @@ from itertools import combinations
 data.txt is bipartite. Identify the nodes in either type and find the
 nodes, in either type, with the most neighbors
 
-### Python code 
+### Python code from [book solutions](https://www.networkatlas.eu/exercise.htm)
 
 ```{python exercise 1, echo=FALSE}
 
@@ -84,7 +84,7 @@ max_set2 <- set2[which.max(set2$n_neighbors),]
 
 ## 2. This [network](https://www.networkatlas.eu/exercises/4/2/data.txt) is multilayer. The data has three columns: source and target node, and edge type. The edge type is either the numerical id of the layer, or "C" for an inter-layer coupling. Given that this is a one-to-one multilayer network, determine whether this network has a star, clique or chain coupling.
 
-### Python code 
+### Python code from [book solutions](https://www.networkatlas.eu/exercise.htm)
 
 ```{python exercise 2, echo=FALSE}
 
@@ -162,7 +162,7 @@ if (df_ce$n_coupling_edges == 1 | df_ce$n_coupling_edges == layers-1){
 
 ## 3. This [network](https://www.networkatlas.eu/exercises/4/3/data.txt) is a hypergraph, with a hyperedge per line. Transform it in a unipartite network in which each hyperedge is split in edges connecting all nodes in the hyperedge. Then transform it into a bipartite network in which each hyperedge is a node of one type and its nodes connect to it.
 
-### Python code 
+### Python code from [book solutions](https://www.networkatlas.eu/exercise.htm) 
 
 ```{python exercise 3, echo=FALSE}
 
@@ -224,7 +224,7 @@ title("Unipartite graph")
 
 ## 4. This [network](https://www.networkatlas.eu/exercises/4/4/data.txt) is dynamic, the third and fourth columns of the edge list tell you the first and last snapshot in which the edge was continuously present. An edge can reappear if the edge was present in two discontinuous time periods. Aggregate it using a disjoint window of size 3.
 
-### Python code 
+### Python code from [book solutions](https://www.networkatlas.eu/exercise.htm)
 
 ```{python exercise 4, echo=FALSE}
 
